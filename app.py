@@ -102,20 +102,24 @@ def search_venues():
 @app.route('/venues/<int:venue_id>')
 def show_venue(venue_id):
   venue = db.session.query(Venue).filter(Venue.id == venue_id).one()
-  list_shows = db.session.query(Show).filter(Show.venue_id == venue_id)
+  past_shows_query = db.session.query(Show).join(Venue).filter(Venue.id==venue_id).filter(Show.start_time<datetime.now()).all()
+  upcoming_shows_query = db.session.query(Show).join(Venue).filter(Venue.id==venue_id).filter(Show.start_time>datetime.now()).all()
   past_shows = []
   upcoming_shows = []
-  for show in list_shows:
-    show_add = {
+  for show in past_shows_query:
+    past_shows.append({
         "artist_id": show.artist_id,
         "artist_name": show.artist.name,
         "artist_image_link": show.artist.image_link,
         "start_time": show.start_time.strftime('%Y-%m-%d %H:%M:%S')
-        }
-    if (show.start_time < datetime.now()):
-        past_shows.append(show_add)
-    else:
-        upcoming_shows.append(show_add)
+        })
+  for show in upcoming_shows_query:
+    upcoming_shows.append({
+        "artist_id": show.artist_id,
+        "artist_name": show.artist.name,
+        "artist_image_link": show.artist.image_link,
+        "start_time": show.start_time.strftime('%Y-%m-%d %H:%M:%S')
+        })
   data = {
       "id": venue.id,
       "name": venue.name,
@@ -146,8 +150,9 @@ def create_venue_form():
 
 @app.route('/venues/create', methods=['POST'])
 def create_venue_submission():
-  form = VenueForm(request.form)
+  form = VenueForm(request.form, meta={"csrf": False})
   try:
+    if form.validate_on_submit():
       venue = Venue(
           name=form.name.data,
           city=form.city.data,
@@ -164,6 +169,10 @@ def create_venue_submission():
       db.session.add(venue)
       db.session.commit()
       flash('Venue ' + request.form['name'] + ' was successfully listed!')
+    else:
+      for field, message in form.errors.items():
+        flash(field + ' - ' + str(message), 'danger')
+      raise ValueError
   except ValueError as e:
       db.session.rollback()
       flash('Error. Venue ' + request.form['name'] + ' listing Unsuccessful')
@@ -224,20 +233,24 @@ def search_artists():
 @app.route('/artists/<int:artist_id>')
 def show_artist(artist_id):
   artist = db.session.query(Artist).filter(Artist.id == artist_id).one()
-  list_shows = db.session.query(Show).filter(Show.artist_id == artist_id)
+  past_shows_query = db.session.query(Show).join(Artist).filter(Show.artist_id == artist_id).filter(Show.start_time<datetime.now()).all()
+  upcoming_shows_query = db.session.query(Show).join(Artist).filter(Show.artist_id == artist_id).filter(Show.start_time>datetime.now()).all()
   past_shows = []
   upcoming_shows = []
-  for show in list_shows:
-    show_add = {
+  for show in past_shows_query:
+    past_shows.append({
         "venue_id": show.venue_id,
         "venue_name": show.venue.name,
         "venue_image_link": show.venue.image_link,
         "start_time": show.start_time.strftime('%Y-%m-%d %H:%M:%S')
-        }
-    if (show.start_time < datetime.now()):
-        past_shows.append(show_add)
-    else:
-        upcoming_shows.append(show_add)
+        })
+  for show in upcoming_shows_query:
+    upcoming_shows.append({
+        "venue_id": show.venue_id,
+        "venue_name": show.venue.name,
+        "venue_image_link": show.venue.image_link,
+        "start_time": show.start_time.strftime('%Y-%m-%d %H:%M:%S')
+        })
   data = {
       "id": artist.id,
       "name": artist.name,
@@ -268,7 +281,7 @@ def edit_artist(artist_id):
 
 @app.route('/artists/<int:artist_id>/edit', methods=['POST'])
 def edit_artist_submission(artist_id):
-  form = ArtistForm(request.form)
+  form = ArtistForm(request.form, meta={"csrf": False})
   try:
     artist = Artist.query.get_or_404(artist_id)
     form.populate_obj(artist)
@@ -315,8 +328,9 @@ def create_artist_form():
 
 @app.route('/artists/create', methods=['POST'])
 def create_artist_submission():
-  form = ArtistForm(request.form)
+  form = ArtistForm(request.form, meta={"csrf": False})
   try:
+    if form.validate_on_submit():
       artist = Artist(
           name=form.name.data,
           city=form.city.data,
@@ -332,6 +346,10 @@ def create_artist_submission():
       db.session.add(artist)
       db.session.commit()
       flash('Artist ' + request.form['name'] + ' was successfully listed!')
+    else:
+      for field, message in form.errors.items():
+        flash(field + ' - ' + str(message), 'danger')
+      raise ValueError
   except ValueError as e:
       db.session.rollback()
       flash('Error. Artist ' + request.form['name'] + ' listing Unsuccessful')
