@@ -57,44 +57,43 @@ def index():
 @app.route('/venues')
 def venues():
   current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-  venue_query = Venue.query.group_by(Venue.id, Venue.state, Venue.city).all()
-  city_and_state = ''
   data = []
-  for venue in venue_query:
+  for Venues_one_city in Venue.query.distinct(Venue.state, Venue.city):
+    state = Venues_one_city.state
+    city = Venues_one_city.city
+    one_city_data = {}
+    venues = []
+    venue_query = Venue.query.filter(Venue.state == state, Venue.city == city).all()
+    for venue in venue_query:
       upcoming_shows = venue.shows.filter(Show.start_time > current_time).all()
-      if city_and_state == venue.city + venue.state:
-          data[len(data) - 1]["venues"].append({
-            "id": venue.id,
-            "name": venue.name,
-            "num_upcoming_shows": len(upcoming_shows)
-          })
-      else:
-          city_and_state = venue.city + venue.state
-          data.append({
-            "city": venue.city,
-            "state": venue.state,
-            "venues": [{
-              "id": venue.id,
-              "name": venue.name,
-              "num_upcoming_shows": len(upcoming_shows)
-            }]
-          })
+      venues.append({
+        "id": venue.id,
+        "name": venue.name,
+        "num_upcoming_shows": len(upcoming_shows)
+      })
+    data.append({
+      "city": city,
+      "state": state,
+      "venues": venues
+    })
   return render_template('pages/venues.html', areas=data)
+  
 
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
   search_term = request.form.get('search_term', '')
-  new_results = db.session.query(Venue).filter(Venue.name.ilike(f'%{search_term}%')).all()
+  matched_venues = Venue.query.filter(Venue.name.ilike(f'%{search_term}%')).all()
   data = []
-  for result in new_results:
+  current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+  for venue in matched_venues:
+    upcoming_shows = venue.shows.filter(Show.start_time > current_time).all()
     data.append({
-      "id": result.id,
-      "name": result.name,
-      "num_upcoming_shows": len(
-        db.session.query(Show).filter(Show.venue_id == result.id).filter(Show.start_time > datetime.now()).all()),
+      "id": venue.id,
+      "name": venue.name,
+      "num_upcoming_shows": len(upcoming_shows)
     })
   response = {
-    "count": len(new_results),
+    "count": len(matched_venues),
     "data": data
   }
   return render_template('pages/search_venues.html', results=response, search_term=request.form.get('search_term', ''))
@@ -215,17 +214,18 @@ def artists():
 @app.route('/artists/search', methods=['POST'])
 def search_artists():
   search_term = request.form.get('search_term', '')
-  new_results = db.session.query(Artist).filter(Artist.name.ilike(f'%{search_term}%')).all()
+  matched_artists = Artist.query.filter(Artist.name.ilike(f'%{search_term}%')).all()
   data = []
-  for result in new_results:
+  current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+  for artist in matched_artists:
+    upcoming_shows = artist.shows.filter(Show.start_time > current_time).all()
     data.append({
-      "id": result.id,
-      "name": result.name,
-      "num_upcoming_shows": len(
-        db.session.query(Show).filter(Show.artist_id == result.id).filter(Show.start_time > datetime.now()).all()),
+      "id": artist.id,
+      "name": artist.name,
+      "num_upcoming_shows": len(upcoming_shows)
     })
   response = {
-    "count": len(new_results),
+    "count": len(matched_artists),
     "data": data
   }
   return render_template('pages/search_artists.html', results=response, search_term=request.form.get('search_term', ''))
